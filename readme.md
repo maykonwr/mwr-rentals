@@ -10,25 +10,25 @@
 
 * Go to ox_inventory > data > items.lua add the following items 
 ```lua
-		["rentalpapers"] = {
-			label = "Rental Documents",
-			weight = 0,
-			stack = false,
-			close = true,
-			client = {
-				image = "documents.png",
-			}
-		},
-		["rentalkeys"] = {
-			label = "Rental Keys",
-			weight = 0,
-			stack = false,
-			close = true,
-			client = {
-				image = "rentalkeys.png",
-				export = 'mwr-rentals.usekeys'
-			}
-		},
+	["rentalpapers"] = {
+		label = "Rental Documents",
+		weight = 0,
+		stack = false,
+		close = true,
+		client = {
+			image = "documents.png",
+		}
+	},
+	["rentalkeys"] = {
+		label = "Rental Keys",
+		weight = 0,
+		stack = false,
+		close = true,
+		client = {
+			image = "rentalkeys.png",
+			export = 'mwr-rentals.usekeys'
+		}
+	},
 ```
 
 * Copy the images within rental images folder and go to ox_inventory > web > images and paste the images
