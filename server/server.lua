@@ -70,7 +70,7 @@ RegisterNetEvent('mwr-rentals:sendvehicledata', function(vehicle, plate, rentTim
     end
 end)
 
--- Novo evento para salvar dados do veículo no servidor
+-- Evento para salvar dados do veículo no servidor
 RegisterNetEvent('mwr-rentals:savevehicledata', function(rentalData)
     local PlayerID = source
     local Player = QBCore.Functions.GetPlayer(PlayerID)
@@ -139,23 +139,11 @@ RegisterNetEvent('mwr-rentals:removevehicledata', function(vehiclePlate)
     end
 end)
 
--- Novo evento para tentar recriar veículo perdido
-RegisterNetEvent('mwr-rentals:requestvehiclerecreation', function(rentalData)
-    local PlayerID = source
-    local Player = QBCore.Functions.GetPlayer(PlayerID)
-    if not Player then return end
-    
-    -- Por segurança, não recriar veículos automaticamente
-    -- Em vez disso, notificar o jogador sobre o problema
-    TriggerClientEvent('QBCore:Notify', PlayerID, 'Veículo alugado não encontrado. Entre em contato com a administração.', 'error')
-    print(string.format("[MWR-RENTALS] Solicitação de recriação de veículo para %s: %s", Player.PlayerData.citizenid, rentalData.vehiclePlate))
-end)
-
 RegisterNetEvent('mwr-rentals:returnvehicle', function(price, vehicle)
     local PlayerID = source
     local Player = QBCore.Functions.GetPlayer(PlayerID)
-    if not vehicle then return end
     
+    -- Calcular o dinheiro de volta
     local money = price * Config.MoneyReturn
     Player.Functions.AddMoney(Config.PaymentType, money, 'Devolução do veículo')
     
@@ -165,11 +153,20 @@ RegisterNetEvent('mwr-rentals:returnvehicle', function(price, vehicle)
         if items and items[1] then
             exports.ox_inventory:RemoveItem(PlayerID, 'rentalpapers', 1, nil, items[1].slot)
         end
+        
+        -- Remover chaves também
+        local keyItems = exports.ox_inventory:Search(PlayerID, 'slots', 'rentalkeys')
+        if keyItems and keyItems[1] then
+            exports.ox_inventory:RemoveItem(PlayerID, 'rentalkeys', 1, nil, keyItems[1].slot)
+        end
     else
         Player.Functions.RemoveItem('rentalpapers', 1)
+        Player.Functions.RemoveItem('rentalkeys', 1)
     end
     
-    TriggerClientEvent('QBCore:Notify', PlayerID, Lang:t('info.money_received', {money = money}), 'primary', 6000)
+    TriggerClientEvent('QBCore:Notify', PlayerID, 'Você recebeu $' .. money .. ' de volta pela devolução do veículo!', 'success', 6000)
+    
+    print(string.format("[MWR-RENTALS] Veículo devolvido por %s. Valor recebido: $%s", Player.PlayerData.citizenid, money))
 end)
 
 -- Callback para verificar se um veículo existe

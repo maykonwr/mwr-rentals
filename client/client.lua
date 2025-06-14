@@ -49,23 +49,39 @@ AddEventHandler('onResourceStart', function(resource)
     end
 end)
 
--- Evento para detectar mudanças de dimensão/instância
-AddEventHandler('qb-apartments:client:SetHomeBlip', function()
-    -- Aguardar um pouco para garantir que a mudança de dimensão foi concluída
-    Wait(1000)
+-- Eventos para detectar mudanças de dimensão/instância
+RegisterNetEvent('apartments:client:SetHomeBlip', function()
+    Wait(2000)
     TriggerServerEvent('mwr-rentals:syncrentals')
 end)
 
--- Evento adicional para detectar saída de apartamentos
-AddEventHandler('qb-apartments:client:exitApartment', function()
-    Wait(1000)
+RegisterNetEvent('qb-apartments:client:SetHomeBlip', function()
+    Wait(2000)
     TriggerServerEvent('mwr-rentals:syncrentals')
+end)
+
+RegisterNetEvent('apartments:client:exitApartment', function()
+    Wait(2000)
+    TriggerServerEvent('mwr-rentals:syncrentals')
+end)
+
+RegisterNetEvent('qb-apartments:client:exitApartment', function()
+    Wait(2000)
+    TriggerServerEvent('mwr-rentals:syncrentals')
+end)
+
+-- Evento genérico para mudanças de dimensão
+AddEventHandler('playerSpawned', function()
+    Wait(3000)
+    if PlayerData and PlayerData.citizenid then
+        TriggerServerEvent('mwr-rentals:syncrentals')
+    end
 end)
 
 -- Thread para verificar periodicamente a sincronização
 CreateThread(function()
     while true do
-        Wait(30000) -- Verificar a cada 30 segundos
+        Wait(60000) -- Verificar a cada 1 minuto
         if PlayerData and PlayerData.citizenid then
             TriggerServerEvent('mwr-rentals:syncrentals')
         end
@@ -93,17 +109,41 @@ RegisterNetEvent('mwr-rentals:receiverentals', function(serverRentals)
                             networkId = rental.networkId
                         })
                     else
-                        -- Se o veículo não existe localmente, tentar recriar baseado nos dados do servidor
-                        TriggerServerEvent('mwr-rentals:requestvehiclerecreation', rental)
+                        -- Adicionar mesmo sem o veículo local para permitir devolução administrativa
+                        table.insert(rentalVehicles, {
+                            id = rental.id,
+                            vehicleName = rental.vehicleName,
+                            vehicle = nil,
+                            vehiclePlate = rental.vehiclePlate,
+                            returnCoords = rental.returnCoords,
+                            rentalPrice = rental.rentalPrice,
+                            networkId = rental.networkId
+                        })
                     end
                 else
-                    -- Remover do servidor se não existe mais
-                    TriggerServerEvent('mwr-rentals:removevehicledata', rental.vehiclePlate)
+                    -- Adicionar para devolução administrativa
+                    table.insert(rentalVehicles, {
+                        id = rental.id,
+                        vehicleName = rental.vehicleName,
+                        vehicle = nil,
+                        vehiclePlate = rental.vehiclePlate,
+                        returnCoords = rental.returnCoords,
+                        rentalPrice = rental.rentalPrice,
+                        networkId = rental.networkId
+                    })
                 end
             end, rental.networkId)
         else
-            -- Dados incompletos, remover do servidor
-            TriggerServerEvent('mwr-rentals:removevehicledata', rental.vehiclePlate)
+            -- Dados incompletos, mas ainda permitir devolução
+            table.insert(rentalVehicles, {
+                id = rental.id,
+                vehicleName = rental.vehicleName,
+                vehicle = nil,
+                vehiclePlate = rental.vehiclePlate,
+                returnCoords = rental.returnCoords,
+                rentalPrice = rental.rentalPrice,
+                networkId = nil
+            })
         end
     end
 end)
@@ -165,7 +205,7 @@ CreateThread(function()
                                 action = function()
                                     -- Sincronizar antes de mostrar os aluguéis
                                     TriggerServerEvent('mwr-rentals:syncrentals')
-                                    Wait(500)
+                                    Wait(1000)
                                     ShowRentals(id)
                                 end
                             }
@@ -188,7 +228,7 @@ function ShowRentals(id)
     if not id then return end
     
     -- Aguardar um pouco para garantir que a sincronização foi concluída
-    Wait(200)
+    Wait(500)
     
     local rentals = {
         id = 'rentals',
@@ -201,43 +241,47 @@ function ShowRentals(id)
         if rental.id == id then
             local vehicleExists = false
             local vehicleCoords = vector3(0, 0, 0)
-            local streetName = "Desconhecido"
+            local streetName = "Localização desconhecida"
             local gasLevel = 0
+            local actualVehicle = nil
             
-            -- Verificar se o veículo existe e obter informações
+            -- Tentar encontrar o veículo de várias formas
             if rental.vehicle and DoesEntityExist(rental.vehicle) then
                 vehicleExists = true
-                vehicleCoords = GetEntityCoords(rental.vehicle)
-                local street = GetStreetNameAtCoord(vehicleCoords.x, vehicleCoords.y, vehicleCoords.z)
-                streetName = GetStreetNameFromHashKey(street)
-                gasLevel = GetVehicleFuelLevel(rental.vehicle)
+                actualVehicle = rental.vehicle
             elseif rental.networkId then
                 -- Tentar obter o veículo pelo network ID
                 local vehicle = NetworkGetEntityFromNetworkId(rental.networkId)
                 if DoesEntityExist(vehicle) then
                     vehicleExists = true
+                    actualVehicle = vehicle
                     rental.vehicle = vehicle
-                    vehicleCoords = GetEntityCoords(vehicle)
-                    local street = GetStreetNameAtCoord(vehicleCoords.x, vehicleCoords.y, vehicleCoords.z)
-                    streetName = GetStreetNameFromHashKey(street)
-                    gasLevel = GetVehicleFuelLevel(vehicle)
                 end
             end
             
-            -- Adicionar opção mesmo se o veículo não for encontrado localmente
+            -- Se encontrou o veículo, obter informações
+            if vehicleExists and actualVehicle then
+                vehicleCoords = GetEntityCoords(actualVehicle)
+                local street = GetStreetNameAtCoord(vehicleCoords.x, vehicleCoords.y, vehicleCoords.z)
+                streetName = GetStreetNameFromHashKey(street)
+                gasLevel = GetVehicleFuelLevel(actualVehicle)
+            end
+            
+            -- Adicionar opção (sempre, mesmo se o veículo não for encontrado)
             options[#options+1] = {
-                title = rental.vehicleName,
-                description = vehicleExists and Lang:t('info.return_vehicle') or "Veículo não encontrado - Clique para tentar localizar",
+                title = rental.vehicleName .. (vehicleExists and "" or " (Não encontrado)"),
+                description = vehicleExists and Lang:t('info.return_vehicle') or "Veículo perdido - Devolução administrativa disponível",
                 arrow = true,
                 metadata = {
                     {label = Lang:t('info.vehicle_plate'), value = rental.vehiclePlate},
-                    {label = Lang:t('info.vehicle_fuel'), value = vehicleExists and gasLevel or "N/A"},
+                    {label = Lang:t('info.vehicle_fuel'), value = vehicleExists and math.floor(gasLevel) .. "%" or "N/A"},
                     {label = Lang:t('info.vehicle_location'), value = streetName},
+                    {label = "Status", value = vehicleExists and "Encontrado" or "Perdido"},
                 },
                 event = 'mwr-rentals:returnvehicle',
                 args = {
                     key = key,
-                    vehicle = rental.vehicle,
+                    vehicle = actualVehicle,
                     returnCoords = rental.returnCoords,
                     rentalPrice = rental.rentalPrice,
                     vehiclePlate = rental.vehiclePlate,
@@ -270,51 +314,95 @@ RegisterNetEvent('mwr-rentals:returnvehicle', function (data)
     local vehiclePlate = data.vehiclePlate
     local networkId = data.networkId
     local vehicleExists = data.vehicleExists
+    
+    print("DEBUG: Tentando devolver veículo", vehiclePlate, "Existe:", vehicleExists)
 
-    -- Se o veículo não existe localmente, tentar encontrá-lo pelo network ID
+    -- Tentar encontrar o veículo uma última vez
     if not vehicleExists and networkId then
         rentalVehicle = NetworkGetEntityFromNetworkId(networkId)
         if DoesEntityExist(rentalVehicle) then
             vehicleExists = true
+            print("DEBUG: Veículo encontrado pelo NetworkID")
         end
     end
 
-    if vehicleExists and rentalVehicle then
+    if vehicleExists and rentalVehicle and DoesEntityExist(rentalVehicle) then
         local vehicleLocation = GetEntityCoords(rentalVehicle)
+        local playerCoords = GetEntityCoords(PlayerPedId())
         local dist = #(vector3(returnCoords) - vehicleLocation)
+        local playerDist = #(playerCoords - vehicleLocation)
         
-        if dist < 15 then
+        print("DEBUG: Distância do veículo ao ponto de retorno:", dist)
+        print("DEBUG: Distância do jogador ao veículo:", playerDist)
+        
+        -- Verificar se o veículo está próximo ao ponto de devolução OU se o jogador está próximo ao veículo
+        if dist < 50 or playerDist < 10 then
             NetworkRequestControlOfEntity(rentalVehicle)
-            Wait(500)
-            SetVehicleAsNoLongerNeeded(rentalVehicle)
-            NetworkFadeOutEntity(rentalVehicle, false, true)
-            DeleteEntity(rentalVehicle)
-            table.remove(rentalVehicles, data.key)
+            Wait(1000)
             
-            -- Remover do servidor também
-            TriggerServerEvent('mwr-rentals:removevehicledata', vehiclePlate)
-            TriggerServerEvent('mwr-rentals:returnvehicle', rentalPrice, rentalVehicle)
+            if NetworkHasControlOfEntity(rentalVehicle) then
+                SetVehicleAsNoLongerNeeded(rentalVehicle)
+                NetworkFadeOutEntity(rentalVehicle, false, true)
+                DeleteEntity(rentalVehicle)
+                
+                -- Remover da lista local
+                table.remove(rentalVehicles, data.key)
+                
+                -- Remover do servidor
+                TriggerServerEvent('mwr-rentals:removevehicledata', vehiclePlate)
+                TriggerServerEvent('mwr-rentals:returnvehicle', rentalPrice, rentalVehicle)
+                
+                lib.notify({ 
+                    id = 'vehicle_returned', 
+                    type = 'success', 
+                    description = 'Veículo devolvido com sucesso!', 
+                    position = 'center-right' 
+                })
+            else
+                lib.notify({ 
+                    id = 'no_control', 
+                    type = 'error', 
+                    description = 'Não foi possível obter controle do veículo. Tente novamente.', 
+                    position = 'center-right' 
+                })
+            end
         else
             lib.notify({ 
                 id = 'vehicle_too_far', 
                 type = 'error', 
-                description = 'O veículo está muito longe do ponto de devolução. Distância: ' .. math.floor(dist) .. 'm', 
+                description = 'Veículo muito longe. Aproxime-se do veículo ou leve-o ao ponto de devolução.', 
                 position = 'center-right' 
             })
         end
     else
-        -- Veículo não encontrado, permitir devolução administrativa
+        -- Veículo não encontrado, oferecer devolução administrativa
+        print("DEBUG: Veículo não encontrado, oferecendo devolução administrativa")
+        
         local alert = lib.alertDialog({
-            header = 'Veículo não encontrado',
-            content = 'O veículo não foi encontrado. Deseja fazer a devolução administrativa? Você receberá apenas 25% do valor de volta.',
+            header = 'Veículo Perdido',
+            content = 'O veículo não foi encontrado no mundo. Isso pode acontecer após mudanças de dimensão.\n\nDeseja fazer a devolução administrativa?\n\n• Você receberá 25% do valor pago\n• O veículo será removido dos seus aluguéis',
             centered = true,
-            cancel = true
+            cancel = true,
+            labels = {
+                confirm = 'Devolver (25%)',
+                cancel = 'Cancelar'
+            }
         })
         
         if alert == 'confirm' then
+            -- Remover da lista local
             table.remove(rentalVehicles, data.key)
+            
+            -- Remover do servidor
             TriggerServerEvent('mwr-rentals:removevehicledata', vehiclePlate)
-            TriggerServerEvent('mwr-rentals:returnvehicle', rentalPrice * 0.5, nil) -- 25% em vez de 50%
+            TriggerServerEvent('mwr-rentals:returnvehicle', rentalPrice * 0.5, nil) -- 25% do valor original
+            
+            lib.notify({ 
+                id = 'admin_return', 
+                type = 'success', 
+                description = 'Devolução administrativa realizada. Você recebeu 25% do valor.', 
+                position = 'center-right' 
+            })
         end
     end
 end)
