@@ -1,5 +1,8 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 
+-- Tabela para armazenar veículos alugados no servidor
+local serverRentalVehicles = {}
+
 RegisterNetEvent('mwr-rentals:sendinfomation', function(data, payMethod, rentTime)
 	local PlayerID = source
     local Player = QBCore.Functions.GetPlayer(PlayerID)
@@ -67,6 +70,42 @@ RegisterNetEvent('mwr-rentals:sendvehicledata', function(vehicle, plate, rentTim
     end
 end)
 
+-- Novo evento para salvar dados do veículo no servidor
+RegisterNetEvent('mwr-rentals:savevehicledata', function(rentalData)
+    local PlayerID = source
+    local citizenid = QBCore.Functions.GetPlayer(PlayerID).PlayerData.citizenid
+    
+    if not serverRentalVehicles[citizenid] then
+        serverRentalVehicles[citizenid] = {}
+    end
+    
+    table.insert(serverRentalVehicles[citizenid], rentalData)
+end)
+
+-- Evento para sincronizar veículos alugados
+RegisterNetEvent('mwr-rentals:syncrentals', function()
+    local PlayerID = source
+    local citizenid = QBCore.Functions.GetPlayer(PlayerID).PlayerData.citizenid
+    
+    if serverRentalVehicles[citizenid] then
+        TriggerClientEvent('mwr-rentals:receiverentals', PlayerID, serverRentalVehicles[citizenid])
+    end
+end)
+
+-- Evento para remover veículo alugado do servidor
+RegisterNetEvent('mwr-rentals:removevehicledata', function(vehiclePlate)
+    local PlayerID = source
+    local citizenid = QBCore.Functions.GetPlayer(PlayerID).PlayerData.citizenid
+    
+    if serverRentalVehicles[citizenid] then
+        for i, rental in ipairs(serverRentalVehicles[citizenid]) do
+            if rental.vehiclePlate == vehiclePlate then
+                table.remove(serverRentalVehicles[citizenid], i)
+                break
+            end
+        end
+    end
+end)
 
 RegisterNetEvent('mwr-rentals:returnvehicle', function(price, vehicle)
     local PlayerID = source
@@ -78,6 +117,11 @@ RegisterNetEvent('mwr-rentals:returnvehicle', function(price, vehicle)
     TriggerClientEvent('QBCore:Notify', PlayerID, Lang:t('info.money_received', {money = money}), 'primary', 6000)
 end)
 
+-- Callback para verificar se um veículo existe
+QBCore.Functions.CreateCallback('mwr-rentals:checkvehicleexists', function(source, cb, netId)
+    local vehicle = NetworkGetEntityFromNetworkId(netId)
+    cb(DoesEntityExist(vehicle))
+end)
 
 if Config.Inventory == 'ox' then
     lib.callback.register('mwr-rentals:usekeys', function(source, slot)

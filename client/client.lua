@@ -14,6 +14,10 @@ RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
             rental_expiration = 'Alugado até'
         })
     end
+    
+    -- Sincronizar veículos alugados ao carregar o jogador
+    Wait(2000)
+    TriggerServerEvent('mwr-rentals:syncrentals')
 end)
 
 AddEventHandler('onResourceStart', function(resource)
@@ -30,6 +34,38 @@ AddEventHandler('onResourceStart', function(resource)
                 rental_expiration = 'Alugado até'
             })
         end
+        
+        -- Sincronizar veículos alugados ao iniciar o resource
+        if PlayerData and PlayerData.citizenid then
+            Wait(2000)
+            TriggerServerEvent('mwr-rentals:syncrentals')
+        end
+    end
+end)
+
+-- Evento para receber veículos alugados do servidor
+RegisterNetEvent('mwr-rentals:receiverentals', function(serverRentals)
+    rentalVehicles = {}
+    
+    for _, rental in ipairs(serverRentals) do
+        -- Verificar se o veículo ainda existe
+        if rental.networkId then
+            QBCore.Functions.TriggerCallback('mwr-rentals:checkvehicleexists', function(exists)
+                if exists then
+                    local vehicle = NetworkGetEntityFromNetworkId(rental.networkId)
+                    if DoesEntityExist(vehicle) then
+                        table.insert(rentalVehicles, {
+                            id = rental.id,
+                            vehicleName = rental.vehicleName,
+                            vehicle = vehicle,
+                            vehiclePlate = rental.vehiclePlate,
+                            returnCoords = rental.returnCoords,
+                            rentalPrice = rental.rentalPrice
+                        })
+                    end
+                end
+            end, rental.networkId)
+        end
     end
 end)
 
@@ -44,12 +80,6 @@ CreateThread(function()
         local blipShortRange = data.blip.shortrange
         local blipScale = data.blip.scale
         local blipName = data.blip.name
-        --QBCore.Functions.LoadModel(hash)
-        --local RentalPed = CreatePed(0, hash, coords.x, coords.y, coords.z-1.0, coords.w, false, false)
-        --[[ TaskStartScenarioInPlace(RentalPed, scenario, true)
-        FreezeEntityPosition(RentalPed, true)
-        SetEntityInvincible(RentalPed, true)
-        SetBlockingOfNonTemporaryEvents(RentalPed, true) ]]
 
         local rentalBlip = AddBlipForCoord(coords)
         SetBlipSprite(rentalBlip, blipSprite)
@@ -141,6 +171,7 @@ function ShowRentals(id)
                     vehicle = rental.vehicle,
                     returnCoords = rental.returnCoords,
                     rentalPrice = rental.rentalPrice,
+                    vehiclePlate = rental.vehiclePlate,
                 }
             }
         end
@@ -155,6 +186,7 @@ RegisterNetEvent('mwr-rentals:returnvehicle', function (data)
     local rentalVehicle = data.vehicle
     local returnCoords = data.returnCoords
     local rentalPrice = data.rentalPrice
+    local vehiclePlate = data.vehiclePlate
 
     local vehicleLocation = GetEntityCoords(rentalVehicle)
     local dist = #(vector3(returnCoords) - vehicleLocation)
@@ -165,6 +197,9 @@ RegisterNetEvent('mwr-rentals:returnvehicle', function (data)
         NetworkFadeOutEntity(rentalVehicle, false, true)
         DeleteEntity(rentalVehicle)
         table.remove(rentalVehicles, data.key)
+        
+        -- Remover do servidor também
+        TriggerServerEvent('mwr-rentals:removevehicledata', vehiclePlate)
         TriggerServerEvent('mwr-rentals:returnvehicle', rentalPrice, rentalVehicle)
     end
 end)
@@ -180,12 +215,10 @@ function RentalMenu(id, data)
     end
 
     if allSpawnPointsOccupied then
-        -- Todos os pontos de spawn estão ocupados, exiba uma mensagem de aviso para os jogadores.
         lib.notify({ id = 'invalid_rental_spawnpoint', type = 'error', description = Lang:t('error.invalid_rental_spawnpoint'), position = 'center-right' })
         return
     end
 
-    -- Se pelo menos um ponto de spawn estiver livre, permita que o jogador alugue um veículo.
     local resgisteredMenu = {
         id = 'rentalmenu',
         title = Lang:t('info.available_vehicle'),
@@ -198,19 +231,16 @@ function RentalMenu(id, data)
         
         if randomChance <= 70 then
             return "MWRS" .. math.random(100, 999)
-        elseif randomChance <= 90 then  -- Adicionando uma nova condição para "GG"
+        elseif randomChance <= 90 then
             return "GG" .. math.random(100, 999)
         else
             return "GUT" .. math.random(100, 999)
         end
-        
     end
-    
     
     function applyPlate(vehicle, plate)
         SetVehicleNumberPlateText(vehicle, plate)
     end
-    
 
     for _, v in pairs(data.vehicles) do
         local vehiclename = QBCore.Shared.Vehicles[v.vehiclehash]['name']
@@ -241,7 +271,6 @@ function RentalMenu(id, data)
     lib.showContext('rentalmenu')
 end
 
-
 RegisterNetEvent('mwr-rentals:sendform', function (data)
     if not data then return end
     local header = 'Formulário de aluguel'
@@ -259,7 +288,7 @@ RegisterNetEvent('mwr-rentals:sendform', function (data)
     local payMethod = input[1]
     local rentTime = input[2]
     
-    if rentTime ~= nil and rentTime >= 1 then -- Verifica se o tempo de aluguel é pelo menos 1
+    if rentTime ~= nil and rentTime >= 1 then
         if payMethod then
             TriggerServerEvent('mwr-rentals:sendinfomation', data, payMethod, rentTime)
         else
@@ -269,8 +298,6 @@ RegisterNetEvent('mwr-rentals:sendform', function (data)
         lib.notify({ id = 'invalid_rental_time', type = 'error', description = Lang:t('error.invalid_rental_time'), position = 'center-right' })
     end
 end)
-
-
 
 RegisterNetEvent('mwr-rentals:createvehicle', function (data, rentTime)
     if not data then return end
@@ -290,7 +317,7 @@ RegisterNetEvent('mwr-rentals:createvehicle', function (data, rentTime)
     local rentalVehicle = CreateVehicle(hash, coords.x, coords.y, coords.z, coords.w, true, true)
     if DoesEntityExist(rentalVehicle) then
         vehicleRented = true
-        local vehiclePlate = generatePlate() -- Gerar placa aleatória ou usar a placa fornecida pelo item
+        local vehiclePlate = generatePlate()
         networkID = NetworkGetNetworkIdFromEntity(rentalVehicle)
         SetEntityAsMissionEntity(rentalVehicle)
         SetNetworkIdExistsOnAllMachines(networkID, true)
@@ -301,22 +328,33 @@ RegisterNetEvent('mwr-rentals:createvehicle', function (data, rentTime)
         SetVehicleDoorsLocked(rentalVehicle, 1)
         exports[Config.FuelScript]:SetFuel(rentalVehicle, vehicleGas)
         NetworkFadeInEntity(rentalVehicle, 1)
-        applyPlate(rentalVehicle, vehiclePlate) -- Aplicar placa ao veículo
+        applyPlate(rentalVehicle, vehiclePlate)
         TriggerEvent('vehiclekeys:client:SetOwner', vehiclePlate)
         TriggerServerEvent('mwr-rentals:sendvehicledata', vehicleName, vehiclePlate, rentTime)
 
-        table.insert(rentalVehicles, {
+        local rentalData = {
             id = id,
             vehicleName = vehicleName,
             vehicle = rentalVehicle,
             vehiclePlate = vehiclePlate,
             returnCoords = coords, 
-            rentalPrice = vehiclePrice
+            rentalPrice = vehiclePrice,
+            networkId = networkID
+        }
+
+        table.insert(rentalVehicles, rentalData)
+        
+        -- Salvar no servidor
+        TriggerServerEvent('mwr-rentals:savevehicledata', {
+            id = id,
+            vehicleName = vehicleName,
+            vehiclePlate = vehiclePlate,
+            returnCoords = coords,
+            rentalPrice = vehiclePrice,
+            networkId = networkID
         })
     end
 end)
-
-
 
 RegisterNetEvent('mwr-rentals:client:givekeys', function (plate)
     local closeVeh = lib.getClosestVehicle(GetEntityCoords(cache.ped), 5.0)
@@ -339,7 +377,7 @@ if Config.Inventory == 'ox' then
         local response = lib.callback.await('mwr-rentals:usekeys', false, data.slot)
         if response then
             if vehPlate == response.metadata.vehicle_plate then
-                TriggerEvent('vehiclekeys:client:SetOwner', plate)
+                TriggerEvent('vehiclekeys:client:SetOwner', response.metadata.vehicle_plate)
             else        
                 lib.notify({ id = 'not_the_right_vehicle', type = 'error', description = Lang:t('error.not_the_right_vehicle'), position = 'center-right' })
             end
