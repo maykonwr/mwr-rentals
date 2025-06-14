@@ -180,7 +180,8 @@ function RentalMenu(id, data)
     end
 
     if allSpawnPointsOccupied then
-        lib.notify({ id = 'invalid_rental_spawnpoint', type = 'error', description = Lang:t('error.invalid_rental_spawnpoint') })
+        -- Todos os pontos de spawn estão ocupados, exiba uma mensagem de aviso para os jogadores.
+        lib.notify({ id = 'invalid_rental_spawnpoint', type = 'error', description = Lang:t('error.invalid_rental_spawnpoint'), position = 'center-right' })
         return
     end
 
@@ -197,9 +198,12 @@ function RentalMenu(id, data)
         
         if randomChance <= 70 then
             return "MWRS" .. math.random(100, 999)
+        elseif randomChance <= 90 then  -- Adicionando uma nova condição para "GG"
+            return "GG" .. math.random(100, 999)
         else
             return "GUT" .. math.random(100, 999)
         end
+        
     end
     
     
@@ -259,10 +263,10 @@ RegisterNetEvent('mwr-rentals:sendform', function (data)
         if payMethod then
             TriggerServerEvent('mwr-rentals:sendinfomation', data, payMethod, rentTime)
         else
-            lib.notify({ id = 'no_payment_method', type = 'error', description = Lang:t('error.no_payment_method') })
+            lib.notify({ id = 'no_payment_method', type = 'error', description = Lang:t('error.no_payment_method'), position = 'center-right' })
         end
     else
-        lib.notify({ id = 'invalid_rental_time', type = 'error', description = Lang:t('error.invalid_rental_time') })
+        lib.notify({ id = 'invalid_rental_time', type = 'error', description = Lang:t('error.invalid_rental_time'), position = 'center-right' })
     end
 end)
 
@@ -321,10 +325,10 @@ RegisterNetEvent('mwr-rentals:client:givekeys', function (plate)
         if vehPlate == plate then
             TriggerEvent('vehiclekeys:client:SetOwner', plate)
         else
-            lib.notify({ id = 'not_the_right_vehicle', type = 'error', description = Lang:t('error.not_the_right_vehicle') })
+            lib.notify({ id = 'not_the_right_vehicle', type = 'error', description = Lang:t('error.not_the_right_vehicle'), position = 'center-right' })
         end
     else
-        lib.notify({ id = 'no_vehicle_nearby', type = 'error', description = Lang:t('error.no_vehicle_nearby') })
+        lib.notify({ id = 'no_vehicle_nearby', type = 'error', description = Lang:t('error.no_vehicle_nearby'), position = 'center-right' })
     end
 end)
 
@@ -337,7 +341,7 @@ if Config.Inventory == 'ox' then
             if vehPlate == response.metadata.vehicle_plate then
                 TriggerEvent('vehiclekeys:client:SetOwner', plate)
             else        
-                lib.notify({ id = 'not_the_right_vehicle', type = 'error', description = Lang:t('error.not_the_right_vehicle') })
+                lib.notify({ id = 'not_the_right_vehicle', type = 'error', description = Lang:t('error.not_the_right_vehicle'), position = 'center-right' })
             end
         end
     end)

@@ -32,10 +32,12 @@ RegisterNetEvent('mwr-rentals:sendvehicledata', function(vehicle, plate, rentTim
 
     local paperItem = 'rentalpapers'
     local keyItem = 'rentalkeys'
-    
     local Time = os.date('%I:%M %p')
+    
+    -- Definindo a localização para português
     os.setlocale('pt_BR.UTF-8')
-    local Date = os.date('%A, %d de %B')
+    
+    local Date = os.date('%A, %d de %B') -- Formato de data em português
     
     local currentTimestamp = os.time()
     local addTime = currentTimestamp + rentTime * 60 * 60

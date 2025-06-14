@@ -1,11 +1,12 @@
 
 fx_version 'cerulean'
-game 'gta5'
-lua54 'yes'
 
-author 'MwR'
-description 'Vehicle Rental Script'
-version '2.1.0'
+author 'MwR Scripts'
+
+game 'gta5'
+
+description 'Script utils'
+version '2.3.0'
 
 shared_script {
 	'config.lua',
@@ -22,6 +23,8 @@ client_scripts {
 server_scripts {
 	'server/*.lua'
 }
+
+lua54 'yes'
 
 escrow_ignore { 
     'client/*.lua',
