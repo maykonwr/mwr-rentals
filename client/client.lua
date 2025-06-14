@@ -1,8 +1,10 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 
 local rentalVehicles = {}
+local PlayerData = {}
 
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
+    PlayerData = QBCore.Functions.GetPlayerData()
     if Config.Inventory == 'ox' then
         Wait(500)
         exports.ox_inventory:displayMetadata({
@@ -18,6 +20,10 @@ RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
     -- Sincronizar veículos alugados ao carregar o jogador
     Wait(2000)
     TriggerServerEvent('mwr-rentals:syncrentals')
+end)
+
+RegisterNetEvent('QBCore:Client:OnPlayerUnload', function()
+    PlayerData = {}
 end)
 
 AddEventHandler('onResourceStart', function(resource)
@@ -43,6 +49,29 @@ AddEventHandler('onResourceStart', function(resource)
     end
 end)
 
+-- Evento para detectar mudanças de dimensão/instância
+AddEventHandler('qb-apartments:client:SetHomeBlip', function()
+    -- Aguardar um pouco para garantir que a mudança de dimensão foi concluída
+    Wait(1000)
+    TriggerServerEvent('mwr-rentals:syncrentals')
+end)
+
+-- Evento adicional para detectar saída de apartamentos
+AddEventHandler('qb-apartments:client:exitApartment', function()
+    Wait(1000)
+    TriggerServerEvent('mwr-rentals:syncrentals')
+end)
+
+-- Thread para verificar periodicamente a sincronização
+CreateThread(function()
+    while true do
+        Wait(30000) -- Verificar a cada 30 segundos
+        if PlayerData and PlayerData.citizenid then
+            TriggerServerEvent('mwr-rentals:syncrentals')
+        end
+    end
+end)
+
 -- Evento para receber veículos alugados do servidor
 RegisterNetEvent('mwr-rentals:receiverentals', function(serverRentals)
     rentalVehicles = {}
@@ -60,11 +89,21 @@ RegisterNetEvent('mwr-rentals:receiverentals', function(serverRentals)
                             vehicle = vehicle,
                             vehiclePlate = rental.vehiclePlate,
                             returnCoords = rental.returnCoords,
-                            rentalPrice = rental.rentalPrice
+                            rentalPrice = rental.rentalPrice,
+                            networkId = rental.networkId
                         })
+                    else
+                        -- Se o veículo não existe localmente, tentar recriar baseado nos dados do servidor
+                        TriggerServerEvent('mwr-rentals:requestvehiclerecreation', rental)
                     end
+                else
+                    -- Remover do servidor se não existe mais
+                    TriggerServerEvent('mwr-rentals:removevehicledata', rental.vehiclePlate)
                 end
             end, rental.networkId)
+        else
+            -- Dados incompletos, remover do servidor
+            TriggerServerEvent('mwr-rentals:removevehicledata', rental.vehiclePlate)
         end
     end
 end)
@@ -124,6 +163,9 @@ CreateThread(function()
                                 label = "Devolver veículo",
                                 shouldClose = true,
                                 action = function()
+                                    -- Sincronizar antes de mostrar os aluguéis
+                                    TriggerServerEvent('mwr-rentals:syncrentals')
+                                    Wait(500)
                                     ShowRentals(id)
                                 end
                             }
@@ -144,25 +186,52 @@ end)
 
 function ShowRentals(id)
     if not id then return end
+    
+    -- Aguardar um pouco para garantir que a sincronização foi concluída
+    Wait(200)
+    
     local rentals = {
         id = 'rentals',
         title = Lang:t('info.current_rentals'),
         options = {}
     }
     local options = {}
+    
     for key, rental in pairs(rentalVehicles) do
         if rental.id == id then
-            local vehicleCoords = GetEntityCoords(rental.vehicle)
-            local street = GetStreetNameAtCoord(vehicleCoords.x, vehicleCoords.y, vehicleCoords.z)
-            local streetName = GetStreetNameFromHashKey(street)
-            local gasLevel = GetVehicleFuelLevel(rental.vehicle)
+            local vehicleExists = false
+            local vehicleCoords = vector3(0, 0, 0)
+            local streetName = "Desconhecido"
+            local gasLevel = 0
+            
+            -- Verificar se o veículo existe e obter informações
+            if rental.vehicle and DoesEntityExist(rental.vehicle) then
+                vehicleExists = true
+                vehicleCoords = GetEntityCoords(rental.vehicle)
+                local street = GetStreetNameAtCoord(vehicleCoords.x, vehicleCoords.y, vehicleCoords.z)
+                streetName = GetStreetNameFromHashKey(street)
+                gasLevel = GetVehicleFuelLevel(rental.vehicle)
+            elseif rental.networkId then
+                -- Tentar obter o veículo pelo network ID
+                local vehicle = NetworkGetEntityFromNetworkId(rental.networkId)
+                if DoesEntityExist(vehicle) then
+                    vehicleExists = true
+                    rental.vehicle = vehicle
+                    vehicleCoords = GetEntityCoords(vehicle)
+                    local street = GetStreetNameAtCoord(vehicleCoords.x, vehicleCoords.y, vehicleCoords.z)
+                    streetName = GetStreetNameFromHashKey(street)
+                    gasLevel = GetVehicleFuelLevel(vehicle)
+                end
+            end
+            
+            -- Adicionar opção mesmo se o veículo não for encontrado localmente
             options[#options+1] = {
                 title = rental.vehicleName,
-                description = Lang:t('info.return_vehicle'),
+                description = vehicleExists and Lang:t('info.return_vehicle') or "Veículo não encontrado - Clique para tentar localizar",
                 arrow = true,
                 metadata = {
                     {label = Lang:t('info.vehicle_plate'), value = rental.vehiclePlate},
-                    {label = Lang:t('info.vehicle_fuel'), value = gasLevel},
+                    {label = Lang:t('info.vehicle_fuel'), value = vehicleExists and gasLevel or "N/A"},
                     {label = Lang:t('info.vehicle_location'), value = streetName},
                 },
                 event = 'mwr-rentals:returnvehicle',
@@ -172,10 +241,21 @@ function ShowRentals(id)
                     returnCoords = rental.returnCoords,
                     rentalPrice = rental.rentalPrice,
                     vehiclePlate = rental.vehiclePlate,
+                    networkId = rental.networkId,
+                    vehicleExists = vehicleExists
                 }
             }
         end
     end
+    
+    if #options == 0 then
+        options[#options+1] = {
+            title = "Nenhum veículo alugado",
+            description = "Você não possui veículos alugados neste local",
+            disabled = true
+        }
+    end
+    
     rentals['options'] = options
     lib.registerContext(rentals)
     lib.showContext('rentals')
@@ -183,24 +263,59 @@ end
 
 RegisterNetEvent('mwr-rentals:returnvehicle', function (data)
     if not data then return end
+    
     local rentalVehicle = data.vehicle
     local returnCoords = data.returnCoords
     local rentalPrice = data.rentalPrice
     local vehiclePlate = data.vehiclePlate
+    local networkId = data.networkId
+    local vehicleExists = data.vehicleExists
 
-    local vehicleLocation = GetEntityCoords(rentalVehicle)
-    local dist = #(vector3(returnCoords) - vehicleLocation)
-    if dist < 15 then
-        NetworkRequestControlOfEntity(rentalVehicle)
-        Wait(500)
-        SetVehicleAsNoLongerNeeded(rentalVehicle)
-        NetworkFadeOutEntity(rentalVehicle, false, true)
-        DeleteEntity(rentalVehicle)
-        table.remove(rentalVehicles, data.key)
+    -- Se o veículo não existe localmente, tentar encontrá-lo pelo network ID
+    if not vehicleExists and networkId then
+        rentalVehicle = NetworkGetEntityFromNetworkId(networkId)
+        if DoesEntityExist(rentalVehicle) then
+            vehicleExists = true
+        end
+    end
+
+    if vehicleExists and rentalVehicle then
+        local vehicleLocation = GetEntityCoords(rentalVehicle)
+        local dist = #(vector3(returnCoords) - vehicleLocation)
         
-        -- Remover do servidor também
-        TriggerServerEvent('mwr-rentals:removevehicledata', vehiclePlate)
-        TriggerServerEvent('mwr-rentals:returnvehicle', rentalPrice, rentalVehicle)
+        if dist < 15 then
+            NetworkRequestControlOfEntity(rentalVehicle)
+            Wait(500)
+            SetVehicleAsNoLongerNeeded(rentalVehicle)
+            NetworkFadeOutEntity(rentalVehicle, false, true)
+            DeleteEntity(rentalVehicle)
+            table.remove(rentalVehicles, data.key)
+            
+            -- Remover do servidor também
+            TriggerServerEvent('mwr-rentals:removevehicledata', vehiclePlate)
+            TriggerServerEvent('mwr-rentals:returnvehicle', rentalPrice, rentalVehicle)
+        else
+            lib.notify({ 
+                id = 'vehicle_too_far', 
+                type = 'error', 
+                description = 'O veículo está muito longe do ponto de devolução. Distância: ' .. math.floor(dist) .. 'm', 
+                position = 'center-right' 
+            })
+        end
+    else
+        -- Veículo não encontrado, permitir devolução administrativa
+        local alert = lib.alertDialog({
+            header = 'Veículo não encontrado',
+            content = 'O veículo não foi encontrado. Deseja fazer a devolução administrativa? Você receberá apenas 25% do valor de volta.',
+            centered = true,
+            cancel = true
+        })
+        
+        if alert == 'confirm' then
+            table.remove(rentalVehicles, data.key)
+            TriggerServerEvent('mwr-rentals:removevehicledata', vehiclePlate)
+            TriggerServerEvent('mwr-rentals:returnvehicle', rentalPrice * 0.5, nil) -- 25% em vez de 50%
+        end
     end
 end)
 
