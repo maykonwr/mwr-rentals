@@ -100,18 +100,6 @@ RegisterNetEvent('mwr-rentals:syncrentals', function()
     local citizenid = Player.PlayerData.citizenid
     
     if serverRentalVehicles[citizenid] then
-        -- Limpar veículos muito antigos (mais de 24 horas)
-        local currentTime = os.time()
-        local validRentals = {}
-        
-        for _, rental in ipairs(serverRentalVehicles[citizenid]) do
-            if rental.timestamp and (currentTime - rental.timestamp) < 86400 then -- 24 horas
-                table.insert(validRentals, rental)
-            end
-        end
-        
-        serverRentalVehicles[citizenid] = validRentals
-        
         TriggerClientEvent('mwr-rentals:receiverentals', PlayerID, serverRentalVehicles[citizenid])
         print(string.format("[MWR-RENTALS] Sincronização enviada para %s: %d veículos", citizenid, #serverRentalVehicles[citizenid]))
     else
@@ -240,15 +228,17 @@ else
     end)
 end
 
--- Limpeza automática de dados antigos a cada hora
-CreateThread(function()
-    while true do
-        Wait(3600000) -- 1 hora
+-- Limpeza de dados antigos APENAS no início do servidor (reinício)
+AddEventHandler('onResourceStart', function(resourceName)
+    if resourceName == GetCurrentResourceName() then
+        print("[MWR-RENTALS] Iniciando limpeza de dados antigos...")
         
         local currentTime = os.time()
         local cleanedCount = 0
+        local totalPlayers = 0
         
         for citizenid, rentals in pairs(serverRentalVehicles) do
+            totalPlayers = totalPlayers + 1
             local validRentals = {}
             
             for _, rental in ipairs(rentals) do
@@ -266,8 +256,6 @@ CreateThread(function()
             end
         end
         
-        if cleanedCount > 0 then
-            print(string.format("[MWR-RENTALS] Limpeza automática: %d veículos antigos removidos", cleanedCount))
-        end
+        print(string.format("[MWR-RENTALS] Limpeza concluída: %d veículos antigos removidos de %d jogadores", cleanedCount, totalPlayers))
     end
 end)
