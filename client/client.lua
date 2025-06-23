@@ -99,7 +99,8 @@ RegisterNetEvent('mwr-rentals:receiverentals', function(serverRentals)
                             vehiclePlate = rental.vehiclePlate,
                             returnCoords = rental.returnCoords,
                             rentalPrice = rental.rentalPrice,
-                            networkId = rental.networkId
+                            networkId = rental.networkId,
+                            originalLocation = rental.originalLocation
                         })
                     else
                         table.insert(rentalVehicles, {
@@ -109,7 +110,8 @@ RegisterNetEvent('mwr-rentals:receiverentals', function(serverRentals)
                             vehiclePlate = rental.vehiclePlate,
                             returnCoords = rental.returnCoords,
                             rentalPrice = rental.rentalPrice,
-                            networkId = rental.networkId
+                            networkId = rental.networkId,
+                            originalLocation = rental.originalLocation
                         })
                     end
                 else
@@ -120,7 +122,8 @@ RegisterNetEvent('mwr-rentals:receiverentals', function(serverRentals)
                         vehiclePlate = rental.vehiclePlate,
                         returnCoords = rental.returnCoords,
                         rentalPrice = rental.rentalPrice,
-                        networkId = rental.networkId
+                        networkId = rental.networkId,
+                        originalLocation = rental.originalLocation
                     })
                 end
             end, rental.networkId)
@@ -132,7 +135,8 @@ RegisterNetEvent('mwr-rentals:receiverentals', function(serverRentals)
                 vehiclePlate = rental.vehiclePlate,
                 returnCoords = rental.returnCoords,
                 rentalPrice = rental.rentalPrice,
-                networkId = nil
+                networkId = nil,
+                originalLocation = rental.originalLocation
             })
         end
     end
@@ -213,8 +217,7 @@ CreateThread(function()
     end
 end)
 
-function ShowRentals(id)
-    if not id then return end
+function ShowRentals(currentLocationId)
     Wait(500)
     
     local rentals = {
@@ -225,60 +228,64 @@ function ShowRentals(id)
     local options = {}
     
     for key, rental in pairs(rentalVehicles) do
-        if rental.id == id then
-            local vehicleExists = false
-            local vehicleCoords = vector3(0, 0, 0)
-            local streetName = "Localização desconhecida"
-            local gasLevel = 0
-            local actualVehicle = nil
-            
-            if rental.vehicle and DoesEntityExist(rental.vehicle) then
+        local vehicleExists = false
+        local vehicleCoords = vector3(0, 0, 0)
+        local streetName = "Localização desconhecida"
+        local gasLevel = 0
+        local actualVehicle = nil
+        
+        if rental.vehicle and DoesEntityExist(rental.vehicle) then
+            vehicleExists = true
+            actualVehicle = rental.vehicle
+        elseif rental.networkId then
+            local vehicle = NetworkGetEntityFromNetworkId(rental.networkId)
+            if DoesEntityExist(vehicle) then
                 vehicleExists = true
-                actualVehicle = rental.vehicle
-            elseif rental.networkId then
-                local vehicle = NetworkGetEntityFromNetworkId(rental.networkId)
-                if DoesEntityExist(vehicle) then
-                    vehicleExists = true
-                    actualVehicle = vehicle
-                    rental.vehicle = vehicle
-                end
+                actualVehicle = vehicle
+                rental.vehicle = vehicle
             end
-            
-            if vehicleExists and actualVehicle then
-                vehicleCoords = GetEntityCoords(actualVehicle)
-                local street = GetStreetNameAtCoord(vehicleCoords.x, vehicleCoords.y, vehicleCoords.z)
-                streetName = GetStreetNameFromHashKey(street)
-                gasLevel = GetVehicleFuelLevel(actualVehicle)
-            end
-            
-            options[#options+1] = {
-                title = rental.vehicleName .. (vehicleExists and "" or " (Não encontrado)"),
-                description = vehicleExists and Lang:t('info.return_vehicle') or "Veículo perdido - Devolução administrativa disponível",
-                arrow = true,
-                metadata = {
-                    {label = Lang:t('info.vehicle_plate'), value = rental.vehiclePlate},
-                    {label = Lang:t('info.vehicle_fuel'), value = vehicleExists and math.floor(gasLevel) .. "%" or "N/A"},
-                    {label = Lang:t('info.vehicle_location'), value = streetName},
-                    {label = "Status", value = vehicleExists and "Encontrado" or "Perdido"},
-                },
-                event = 'mwr-rentals:returnvehicle',
-                args = {
-                    key = key,
-                    vehicle = actualVehicle,
-                    returnCoords = rental.returnCoords,
-                    rentalPrice = rental.rentalPrice,
-                    vehiclePlate = rental.vehiclePlate,
-                    networkId = rental.networkId,
-                    vehicleExists = vehicleExists
-                }
-            }
         end
+        
+        if vehicleExists and actualVehicle then
+            vehicleCoords = GetEntityCoords(actualVehicle)
+            local street = GetStreetNameAtCoord(vehicleCoords.x, vehicleCoords.y, vehicleCoords.z)
+            streetName = GetStreetNameFromHashKey(street)
+            gasLevel = GetVehicleFuelLevel(actualVehicle)
+        end
+        
+        local originalLocationName = "Desconhecido"
+        if rental.originalLocation and Config.Locations[rental.originalLocation] then
+            originalLocationName = Config.Locations[rental.originalLocation].blip.name
+        end
+        
+        options[#options+1] = {
+            title = rental.vehicleName .. (vehicleExists and "" or " (Não encontrado)"),
+            description = vehicleExists and "Clique para devolver o veículo" or "Veículo perdido - Devolução administrativa disponível",
+            arrow = true,
+            metadata = {
+                {label = Lang:t('info.vehicle_plate'), value = rental.vehiclePlate},
+                {label = Lang:t('info.vehicle_fuel'), value = vehicleExists and math.floor(gasLevel) .. "%" or "N/A"},
+                {label = Lang:t('info.vehicle_location'), value = streetName},
+                {label = "Local de Aluguel", value = originalLocationName},
+                {label = "Status", value = vehicleExists and "Encontrado" or "Perdido"},
+            },
+            event = 'mwr-rentals:returnvehicle',
+            args = {
+                key = key,
+                vehicle = actualVehicle,
+                currentLocationId = currentLocationId,
+                rentalPrice = rental.rentalPrice,
+                vehiclePlate = rental.vehiclePlate,
+                networkId = rental.networkId,
+                vehicleExists = vehicleExists
+            }
+        }
     end
     
     if #options == 0 then
         options[#options+1] = {
             title = "Nenhum veículo alugado",
-            description = "Você não possui veículos alugados neste local",
+            description = "Você não possui veículos alugados",
             disabled = true
         }
     end
@@ -292,7 +299,7 @@ RegisterNetEvent('mwr-rentals:returnvehicle', function (data)
     if not data then return end
     
     local rentalVehicle = data.vehicle
-    local returnCoords = data.returnCoords
+    local currentLocationId = data.currentLocationId
     local rentalPrice = data.rentalPrice
     local vehiclePlate = data.vehiclePlate
     local networkId = data.networkId
@@ -308,11 +315,29 @@ RegisterNetEvent('mwr-rentals:returnvehicle', function (data)
     if vehicleExists and rentalVehicle and DoesEntityExist(rentalVehicle) then
         local vehicleLocation = GetEntityCoords(rentalVehicle)
         local playerCoords = GetEntityCoords(PlayerPedId())
-        local dist = #(vector3(returnCoords) - vehicleLocation)
         local playerDist = #(playerCoords - vehicleLocation)
         
+        -- Verificar se o jogador está próximo ao veículo OU em qualquer ponto de devolução
+        local canReturn = false
+        local returnLocation = nil
         
-        if dist < 50 or playerDist < 10 then
+        -- Verificar se está próximo ao veículo
+        if playerDist < 10 then
+            canReturn = true
+        else
+            -- Verificar se está em algum ponto de devolução
+            for locationId, locationData in pairs(Config.Locations) do
+                local locationCoords = locationData.ped.coords
+                local distToLocation = #(playerCoords - vector3(locationCoords.x, locationCoords.y, locationCoords.z))
+                if distToLocation < 5 then
+                    canReturn = true
+                    returnLocation = locationId
+                    break
+                end
+            end
+        end
+        
+        if canReturn then
             NetworkRequestControlOfEntity(rentalVehicle)
             Wait(1000)
             
@@ -344,12 +369,12 @@ RegisterNetEvent('mwr-rentals:returnvehicle', function (data)
             lib.notify({ 
                 id = 'vehicle_too_far', 
                 type = 'error', 
-                description = 'Veículo muito longe. Aproxime-se do veículo ou leve-o ao ponto de devolução.', 
+                description = 'Para devolver o veículo, você deve estar próximo a ele ou em qualquer ponto de aluguel.', 
                 position = 'center-right' 
             })
         end
     else
-        
+        -- Veículo perdido - devolução administrativa
         local alert = lib.alertDialog({
             header = 'Veículo Perdido',
             content = 'O veículo não foi encontrado. Isso pode acontecer após a seguradora recuperar ou por roubo.\n\nDeseja fazer a devolução administrativa?\n\n• Você receberá apenas 25% do valor pago\n• O veículo será removido dos seus aluguéis',
@@ -365,7 +390,7 @@ RegisterNetEvent('mwr-rentals:returnvehicle', function (data)
             table.remove(rentalVehicles, data.key)
             
             TriggerServerEvent('mwr-rentals:removevehicledata', vehiclePlate)
-            TriggerServerEvent('mwr-rentals:returnvehicle', rentalPrice * 0.5, nil)
+            TriggerServerEvent('mwr-rentals:returnvehicle', rentalPrice * 0.25, nil)
             
             lib.notify({ 
                 id = 'admin_return', 
@@ -492,7 +517,7 @@ RegisterNetEvent('mwr-rentals:createvehicle', function (data, rentTime)
         vehicleRented = true
         local vehiclePlate = generatePlate()
         networkID = NetworkGetNetworkIdFromEntity(rentalVehicle)
-        SetEntityAsMissionEntity(rentalVehicle)
+        SetEntityAsMissionEntity(rentalVehicle, true, true)
         SetNetworkIdExistsOnAllMachines(networkID, true)
         NetworkRegisterEntityAsNetworked(rentalVehicle)
         SetNetworkIdCanMigrate(networkID, true)
@@ -512,7 +537,8 @@ RegisterNetEvent('mwr-rentals:createvehicle', function (data, rentTime)
             vehiclePlate = vehiclePlate,
             returnCoords = coords, 
             rentalPrice = vehiclePrice,
-            networkId = networkID
+            networkId = networkID,
+            originalLocation = id
         }
 
         table.insert(rentalVehicles, rentalData)
@@ -523,7 +549,8 @@ RegisterNetEvent('mwr-rentals:createvehicle', function (data, rentTime)
             vehiclePlate = vehiclePlate,
             returnCoords = coords,
             rentalPrice = vehiclePrice,
-            networkId = networkID
+            networkId = networkID,
+            originalLocation = id
         })
     end
 end)

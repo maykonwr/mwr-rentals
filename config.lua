@@ -7,7 +7,7 @@ Config.MoneyReturn = 0.5 -- this is 50% money return once the rental vehicle is 
 Config.Locations = {
     [1] = {
         blip = {
-            sprite = 225, color = 46, shortrange = true, scale = 0.7, name = 'Aluguel de veículos',
+            sprite = 225, color = 46, shortrange = true, scale = 0.7, name = 'Aluguel de veículos - Centro',
         },
         ped = {
             hash = `s_m_y_valet_01`,
@@ -45,7 +45,7 @@ Config.Locations = {
     },
     [2] = {
         blip = {
-            sprite = 225, color = 46, shortrange = true, scale = 0.75, name = 'Aluguel de veículos',
+            sprite = 225, color = 46, shortrange = true, scale = 0.75, name = 'Aluguel de veículos - Sandy Shores',
         },
         ped = {
             hash = `s_m_y_valet_01`,
@@ -80,7 +80,34 @@ Config.Locations = {
             vector4(1098.34, 2664.05, 37.51, 0.15),
         },
     },
-    
+    [3] = {
+        blip = {
+            sprite = 225, color = 46, shortrange = true, scale = 0.75, name = 'Aluguel de veículos - Paleto Bay',
+        },
+        ped = {
+            hash = `s_m_y_valet_01`,
+            coords = vector4(-276.43, 6226.28, 31.70, 45.0),
+            scenario = 'WORLD_HUMAN_CLIPBOARD',
+            icon = 'fas fa-car',
+        },
+        vehicles = {
+            [1] = {
+                vehicleimage = 'https://cdn.discordapp.com/attachments/1134935950313656330/1384795936651477052/latest.png?ex=6853bb37&is=685269b7&hm=15775be0558367827badb5085759377532e86136a36b81758f1055f822b843a8&',
+                vehiclehash = 'kalahari',
+                icon = 'fas fa-car',
+                gas = math.random(50, 70),
+                price = 1000,
+            },
+            [2] = {
+                vehicleimage = 'https://cdn.discordapp.com/attachments/1134935950313656330/1384796388239478866/latest.png?ex=6853bba3&is=68526a23&hm=45ecad1e7afd534bf1186dd771ca33d0dbbfb9f7f6e90d91dc30372d516a2e89&',
+                vehiclehash = 'bison', icon = 'fas fa-car', gas = math.random(50, 70), price = 2000,
+            },
+        },
+        spawnpoints = {
+            vector4(-280.12, 6230.45, 31.49, 45.0),
+            vector4(-283.45, 6233.78, 31.49, 45.0),
+        },
+    },
 
     -- To add more locations simply copy the array above an simply change the number and the information within
 }

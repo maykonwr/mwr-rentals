@@ -2,6 +2,77 @@ local QBCore = exports['qb-core']:GetCoreObject()
 
 local serverRentalVehicles = {}
 
+-- Função para salvar dados no arquivo JSON
+local function saveRentalData()
+    SaveResourceFile(GetCurrentResourceName(), 'rental_data.json', json.encode(serverRentalVehicles, {indent = true}))
+end
+
+-- Função para carregar dados do arquivo JSON
+local function loadRentalData()
+    local data = LoadResourceFile(GetCurrentResourceName(), 'rental_data.json')
+    if data then
+        local decoded = json.decode(data)
+        if decoded then
+            serverRentalVehicles = decoded
+            print('[mwr-rentals] Dados de aluguel carregados: ' .. #serverRentalVehicles .. ' registros')
+        end
+    else
+        print('[mwr-rentals] Nenhum arquivo de dados encontrado, iniciando com dados vazios')
+    end
+end
+
+-- Carregar dados ao iniciar o resource
+AddEventHandler('onResourceStart', function(resourceName)
+    if resourceName == GetCurrentResourceName() then
+        loadRentalData()
+        
+        -- Limpar veículos expirados (mais de 24 horas)
+        local currentTime = os.time()
+        local cleanedCount = 0
+        local totalPlayers = 0
+        
+        for citizenid, rentals in pairs(serverRentalVehicles) do
+            totalPlayers = totalPlayers + 1
+            local validRentals = {}
+            
+            for _, rental in ipairs(rentals) do
+                if rental.timestamp and (currentTime - rental.timestamp) < 86400 then
+                    table.insert(validRentals, rental)
+                else
+                    cleanedCount = cleanedCount + 1
+                end
+            end
+            
+            if #validRentals == 0 then
+                serverRentalVehicles[citizenid] = nil
+            else
+                serverRentalVehicles[citizenid] = validRentals
+            end
+        end
+        
+        if cleanedCount > 0 then
+            saveRentalData()
+            print('[mwr-rentals] Limpeza automática: ' .. cleanedCount .. ' veículos expirados removidos')
+        end
+    end
+end)
+
+-- Salvar dados ao parar o resource
+AddEventHandler('onResourceStop', function(resourceName)
+    if resourceName == GetCurrentResourceName() then
+        saveRentalData()
+        print('[mwr-rentals] Dados de aluguel salvos')
+    end
+end)
+
+-- Salvar dados periodicamente (a cada 5 minutos)
+CreateThread(function()
+    while true do
+        Wait(300000) -- 5 minutos
+        saveRentalData()
+    end
+end)
+
 RegisterNetEvent('mwr-rentals:sendinfomation', function(data, payMethod, rentTime)
 	local PlayerID = source
     local Player = QBCore.Functions.GetPlayer(PlayerID)
@@ -83,6 +154,8 @@ RegisterNetEvent('mwr-rentals:savevehicledata', function(rentalData)
     
     table.insert(serverRentalVehicles[citizenid], rentalData)
     
+    -- Salvar imediatamente após adicionar um novo aluguel
+    saveRentalData()
 end)
 
 RegisterNetEvent('mwr-rentals:syncrentals', function()
@@ -113,6 +186,9 @@ RegisterNetEvent('mwr-rentals:removevehicledata', function(vehiclePlate)
                 break
             end
         end
+        
+        -- Salvar após remover um aluguel
+        saveRentalData()
     end
 end)
 
@@ -139,7 +215,6 @@ RegisterNetEvent('mwr-rentals:returnvehicle', function(price, vehicle)
     end
     
     TriggerClientEvent('QBCore:Notify', PlayerID, 'Você recebeu $' .. money .. ' de volta pela devolução do veículo!', 'success', 6000)
-    
 end)
 
 QBCore.Functions.CreateCallback('mwr-rentals:checkvehicleexists', function(source, cb, netId)
@@ -169,6 +244,7 @@ QBCore.Commands.Add('clearrentals', 'Limpar veículos alugados de um jogador (Ad
     local citizenid = targetPlayer.PlayerData.citizenid
     if serverRentalVehicles[citizenid] then
         serverRentalVehicles[citizenid] = {}
+        saveRentalData()
         TriggerClientEvent('QBCore:Notify', source, 'Veículos alugados limpos para ' .. targetPlayer.PlayerData.name, 'success')
         TriggerClientEvent('mwr-rentals:receiverentals', targetId, {})
     else
@@ -176,6 +252,15 @@ QBCore.Commands.Add('clearrentals', 'Limpar veículos alugados de um jogador (Ad
     end
 end, 'admin')
 
+QBCore.Commands.Add('saverentals', 'Salvar dados de aluguel manualmente (Admin)', {}, false, function(source, args)
+    saveRentalData()
+    TriggerClientEvent('QBCore:Notify', source, 'Dados de aluguel salvos manualmente', 'success')
+end, 'admin')
+
+QBCore.Commands.Add('loadrentals', 'Recarregar dados de aluguel (Admin)', {}, false, function(source, args)
+    loadRentalData()
+    TriggerClientEvent('QBCore:Notify', source, 'Dados de aluguel recarregados', 'success')
+end, 'admin')
 
 if Config.Inventory == 'ox' then
     lib.callback.register('mwr-rentals:usekeys', function(source, slot)
@@ -191,32 +276,3 @@ else
         TriggerClientEvent('mwr-rentals:client:givekeys', PlayerId, item.info.vehicle_plate)
     end)
 end
-
-AddEventHandler('onResourceStart', function(resourceName)
-    if resourceName == GetCurrentResourceName() then
-        
-        local currentTime = os.time()
-        local cleanedCount = 0
-        local totalPlayers = 0
-        
-        for citizenid, rentals in pairs(serverRentalVehicles) do
-            totalPlayers = totalPlayers + 1
-            local validRentals = {}
-            
-            for _, rental in ipairs(rentals) do
-                if rental.timestamp and (currentTime - rental.timestamp) < 86400 then
-                    table.insert(validRentals, rental)
-                else
-                    cleanedCount = cleanedCount + 1
-                end
-            end
-            
-            if #validRentals == 0 then
-                serverRentalVehicles[citizenid] = nil
-            else
-                serverRentalVehicles[citizenid] = validRentals
-            end
-        end
-        
-    end
-end)
