@@ -30,7 +30,7 @@ local function getNextRestartTime()
     return nextRestart
 end
 
--- Função para ativar a chuva
+-- Função para ativar a chuva silenciosamente
 local function activateRain()
     if rainActivated then return end
     
@@ -43,15 +43,8 @@ local function activateRain()
     rainActivated = true
     
     if Config.Debug then
-        print('[AUTO-RAIN] Chuva ativada: ' .. weather)
+        print('[AUTO-RAIN] Chuva ativada silenciosamente: ' .. weather)
     end
-    
-    -- Notificar todos os jogadores
-    TriggerClientEvent('chat:addMessage', -1, {
-        color = {0, 150, 255},
-        multiline = true,
-        args = {"[SISTEMA]", "O clima mudou para chuva - Servidor reiniciará em breve!"}
-    })
 end
 
 -- Thread principal de verificação
@@ -84,37 +77,20 @@ CreateThread(function()
     end
 end)
 
--- Comando para testar manualmente (admin)
+-- Comando para testar manualmente (admin/console apenas)
 RegisterCommand('testrain', function(source, args, rawCommand)
-    if source == 0 then -- Console
+    if source == 0 then -- Console apenas
         activateRain()
         print('[AUTO-RAIN] Chuva ativada manualmente via console')
-    else
-        -- Verificar se é admin (adapte conforme seu sistema de permissões)
-        local Player = QBCore.Functions.GetPlayer(source)
-        if Player and QBCore.Functions.HasPermission(source, 'admin') then
-            activateRain()
-            TriggerClientEvent('chat:addMessage', source, {
-                color = {0, 255, 0},
-                args = {"[ADMIN]", "Chuva ativada manualmente!"}
-            })
-        end
     end
 end, false)
 
--- Comando para verificar próximo restart
+-- Comando para verificar próximo restart (console apenas)
 RegisterCommand('nextrestart', function(source, args, rawCommand)
-    local nextRestart = getNextRestartTime()
-    if nextRestart then
-        local message = 'Próximo restart em: ' .. nextRestart.diff .. ' minutos'
-        
-        if source == 0 then
-            print('[AUTO-RAIN] ' .. message)
-        else
-            TriggerClientEvent('chat:addMessage', source, {
-                color = {255, 255, 0},
-                args = {"[INFO]", message}
-            })
+    if source == 0 then -- Console apenas
+        local nextRestart = getNextRestartTime()
+        if nextRestart then
+            print('[AUTO-RAIN] Próximo restart em: ' .. nextRestart.diff .. ' minutos')
         end
     end
 end, false)

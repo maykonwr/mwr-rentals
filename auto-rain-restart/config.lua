@@ -11,9 +11,10 @@ Config.RainWeathers = {
 }
 
 -- Clima escolhido (ou 'random' para aleatório)
-Config.SelectedWeather = 'RAIN' -- ou 'random'
+-- Recomendo 'THUNDER' para uma tempestade mais dramática
+Config.SelectedWeather = 'THUNDER' -- ou 'RAIN' ou 'random'
 
--- Ativar debug no console
+-- Ativar debug no console (apenas logs no console do servidor)
 Config.Debug = true
 
 -- Horários de restart do servidor (formato 24h)
