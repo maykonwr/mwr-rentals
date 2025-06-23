@@ -1,6 +1,5 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 
--- Tabela para armazenar veículos alugados no servidor
 local serverRentalVehicles = {}
 
 RegisterNetEvent('mwr-rentals:sendinfomation', function(data, payMethod, rentTime)
@@ -37,10 +36,9 @@ RegisterNetEvent('mwr-rentals:sendvehicledata', function(vehicle, plate, rentTim
     local keyItem = 'rentalkeys'
     local Time = os.date('%I:%M %p')
     
-    -- Definindo a localização para português
     os.setlocale('pt_BR.UTF-8')
     
-    local Date = os.date('%A, %d de %B') -- Formato de data em português
+    local Date = os.date('%A, %d de %B')
     
     local currentTimestamp = os.time()
     local addTime = currentTimestamp + rentTime * 60 * 60
@@ -70,7 +68,6 @@ RegisterNetEvent('mwr-rentals:sendvehicledata', function(vehicle, plate, rentTim
     end
 end)
 
--- Evento para salvar dados do veículo no servidor
 RegisterNetEvent('mwr-rentals:savevehicledata', function(rentalData)
     local PlayerID = source
     local Player = QBCore.Functions.GetPlayer(PlayerID)
@@ -82,16 +79,12 @@ RegisterNetEvent('mwr-rentals:savevehicledata', function(rentalData)
         serverRentalVehicles[citizenid] = {}
     end
     
-    -- Adicionar timestamp para controle
     rentalData.timestamp = os.time()
     
     table.insert(serverRentalVehicles[citizenid], rentalData)
     
-    -- Log para debug
-    print(string.format("[MWR-RENTALS] Veículo salvo para %s: %s (%s)", citizenid, rentalData.vehicleName, rentalData.vehiclePlate))
 end)
 
--- Evento para sincronizar veículos alugados
 RegisterNetEvent('mwr-rentals:syncrentals', function()
     local PlayerID = source
     local Player = QBCore.Functions.GetPlayer(PlayerID)
@@ -101,14 +94,11 @@ RegisterNetEvent('mwr-rentals:syncrentals', function()
     
     if serverRentalVehicles[citizenid] then
         TriggerClientEvent('mwr-rentals:receiverentals', PlayerID, serverRentalVehicles[citizenid])
-        print(string.format("[MWR-RENTALS] Sincronização enviada para %s: %d veículos", citizenid, #serverRentalVehicles[citizenid]))
     else
         TriggerClientEvent('mwr-rentals:receiverentals', PlayerID, {})
-        print(string.format("[MWR-RENTALS] Nenhum veículo encontrado para %s", citizenid))
     end
 end)
 
--- Evento para remover veículo alugado do servidor
 RegisterNetEvent('mwr-rentals:removevehicledata', function(vehiclePlate)
     local PlayerID = source
     local Player = QBCore.Functions.GetPlayer(PlayerID)
@@ -120,7 +110,6 @@ RegisterNetEvent('mwr-rentals:removevehicledata', function(vehiclePlate)
         for i, rental in ipairs(serverRentalVehicles[citizenid]) do
             if rental.vehiclePlate == vehiclePlate then
                 table.remove(serverRentalVehicles[citizenid], i)
-                print(string.format("[MWR-RENTALS] Veículo removido para %s: %s", citizenid, vehiclePlate))
                 break
             end
         end
@@ -131,18 +120,15 @@ RegisterNetEvent('mwr-rentals:returnvehicle', function(price, vehicle)
     local PlayerID = source
     local Player = QBCore.Functions.GetPlayer(PlayerID)
     
-    -- Calcular o dinheiro de volta
     local money = price * Config.MoneyReturn
     Player.Functions.AddMoney(Config.PaymentType, money, 'Devolução do veículo')
     
-    -- Remover documentos de aluguel
     if Config.Inventory == 'ox' then
         local items = exports.ox_inventory:Search(PlayerID, 'slots', 'rentalpapers')
         if items and items[1] then
             exports.ox_inventory:RemoveItem(PlayerID, 'rentalpapers', 1, nil, items[1].slot)
         end
         
-        -- Remover chaves também
         local keyItems = exports.ox_inventory:Search(PlayerID, 'slots', 'rentalkeys')
         if keyItems and keyItems[1] then
             exports.ox_inventory:RemoveItem(PlayerID, 'rentalkeys', 1, nil, keyItems[1].slot)
@@ -154,10 +140,8 @@ RegisterNetEvent('mwr-rentals:returnvehicle', function(price, vehicle)
     
     TriggerClientEvent('QBCore:Notify', PlayerID, 'Você recebeu $' .. money .. ' de volta pela devolução do veículo!', 'success', 6000)
     
-    print(string.format("[MWR-RENTALS] Veículo devolvido por %s. Valor recebido: $%s", Player.PlayerData.citizenid, money))
 end)
 
--- Callback para verificar se um veículo existe
 QBCore.Functions.CreateCallback('mwr-rentals:checkvehicleexists', function(source, cb, netId)
     if not netId then 
         cb(false)
@@ -169,7 +153,6 @@ QBCore.Functions.CreateCallback('mwr-rentals:checkvehicleexists', function(sourc
     cb(exists)
 end)
 
--- Comando administrativo para limpar veículos alugados de um jogador
 QBCore.Commands.Add('clearrentals', 'Limpar veículos alugados de um jogador (Admin)', {{name = 'id', help = 'ID do jogador'}}, true, function(source, args)
     local targetId = tonumber(args[1])
     if not targetId then
@@ -193,25 +176,6 @@ QBCore.Commands.Add('clearrentals', 'Limpar veículos alugados de um jogador (Ad
     end
 end, 'admin')
 
--- Comando para verificar veículos alugados
-QBCore.Commands.Add('checkrentals', 'Verificar veículos alugados (Admin)', {{name = 'id', help = 'ID do jogador (opcional)'}}, false, function(source, args)
-    local targetId = args[1] and tonumber(args[1]) or source
-    local targetPlayer = QBCore.Functions.GetPlayer(targetId)
-    
-    if not targetPlayer then
-        TriggerClientEvent('QBCore:Notify', source, 'Jogador não encontrado', 'error')
-        return
-    end
-    
-    local citizenid = targetPlayer.PlayerData.citizenid
-    local rentals = serverRentalVehicles[citizenid] or {}
-    
-    TriggerClientEvent('QBCore:Notify', source, string.format('%s possui %d veículos alugados', targetPlayer.PlayerData.name, #rentals), 'primary')
-    
-    for i, rental in ipairs(rentals) do
-        print(string.format("Rental %d: %s (%s) - NetworkID: %s", i, rental.vehicleName, rental.vehiclePlate, rental.networkId))
-    end
-end, 'admin')
 
 if Config.Inventory == 'ox' then
     lib.callback.register('mwr-rentals:usekeys', function(source, slot)
@@ -228,10 +192,8 @@ else
     end)
 end
 
--- Limpeza de dados antigos APENAS no início do servidor (reinício)
 AddEventHandler('onResourceStart', function(resourceName)
     if resourceName == GetCurrentResourceName() then
-        print("[MWR-RENTALS] Iniciando limpeza de dados antigos...")
         
         local currentTime = os.time()
         local cleanedCount = 0
@@ -242,7 +204,7 @@ AddEventHandler('onResourceStart', function(resourceName)
             local validRentals = {}
             
             for _, rental in ipairs(rentals) do
-                if rental.timestamp and (currentTime - rental.timestamp) < 86400 then -- 24 horas
+                if rental.timestamp and (currentTime - rental.timestamp) < 86400 then
                     table.insert(validRentals, rental)
                 else
                     cleanedCount = cleanedCount + 1
@@ -256,6 +218,5 @@ AddEventHandler('onResourceStart', function(resourceName)
             end
         end
         
-        print(string.format("[MWR-RENTALS] Limpeza concluída: %d veículos antigos removidos de %d jogadores", cleanedCount, totalPlayers))
     end
 end)

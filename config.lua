@@ -17,23 +17,23 @@ Config.Locations = {
         },
         vehicles = {
             [1] = {
-                vehicleimage = 'https://media.discordapp.net/attachments/1127979309139775530/1211415472650715157/latest.png?ex=65ee1d93&is=65dba893&hm=be79f20406518999e3256203856bb9a1e9d6c9e53ed9e10ed8a75f41aef02645&=&format=webp&quality=lossless&width=550&height=309', -- Image of the vehicle 
-                vehiclehash = 'sultan', -- Name of the vehicle (must be a vehicle from within the shared vehicles.lua in core)
+                vehicleimage = 'https://cdn.discordapp.com/attachments/1134935950313656330/1384795936651477052/latest.png?ex=6853bb37&is=685269b7&hm=15775be0558367827badb5085759377532e86136a36b81758f1055f822b843a8&', -- Image of the vehicle 
+                vehiclehash = 'kalahari', -- Name of the vehicle (must be a vehicle from within the shared vehicles.lua in core)
                 icon = 'fas fa-car',
-                gas = math.random(30, 70), -- Random amount of gas the vehicle will have 
-                price = 500, -- Price of the vehicle to rent
+                gas = math.random(50, 70), -- Random amount of gas the vehicle will have 
+                price = 1000, -- Price of the vehicle to rent
             },
             [2] = {
-                vehicleimage = 'https://media.discordapp.net/attachments/1127979309139775530/1211415650824884244/latest.png?ex=65ee1dbe&is=65dba8be&hm=54d465f57dcf17cca5fc7a476dd6a242d1abf2c4405eda743a8b3925d75717c4&=&format=webp&quality=lossless&width=550&height=309',
-                vehiclehash = 'bison', icon = 'fas fa-car', gas = math.random(30, 70), price = 1500,
+                vehicleimage = 'https://cdn.discordapp.com/attachments/1134935950313656330/1384796388239478866/latest.png?ex=6853bba3&is=68526a23&hm=45ecad1e7afd534bf1186dd771ca33d0dbbfb9f7f6e90d91dc30372d516a2e89&',
+                vehiclehash = 'bison', icon = 'fas fa-car', gas = math.random(50, 70), price = 2000,
             },
             [3] = {
-                vehicleimage = 'https://cdn.discordapp.com/attachments/1127979309139775530/1211415298280923146/surge.png?ex=65ee1d6a&is=65dba86a&hm=91af0b9ba1b9146db48646244d0e08599a330d45d186e292efb0680bcb89f6d4&',
-                vehiclehash = 'surge', icon = 'fas fa-car', gas = math.random(30, 70), price = 900,
+                vehicleimage = 'https://cdn.discordapp.com/attachments/1134935950313656330/1384796322682507335/latest.png?ex=6853bb93&is=68526a13&hm=ea0a74f42e0e3f9d0afc81a902218855293347b3638c84a995c3d560241a8cc5&',
+                vehiclehash = 'surge', icon = 'fas fa-car', gas = math.random(50, 70), price = 1500,
             },
             [4] = {
-                vehicleimage = 'https://cdn.discordapp.com/attachments/1127979309139775530/1211415838087843840/gta-mag-maibatsu-sanchez-livery-406178.png?ex=65ee1dea&is=65dba8ea&hm=a65abacbb6e4ffdaa3318d56e8e8e7148cd593f5b3cd1235aa8a1520de5d61ab&',
-                vehiclehash = 'sanchez', icon = 'fas fa-car', gas = math.random(30, 70), price = 800,
+                vehicleimage = 'https://cdn.discordapp.com/attachments/1134935950313656330/1384796453896982598/latest.png?ex=6853bbb2&is=68526a32&hm=6d80b423bb7928673c64821c1cd2313f03045ea0340cb5a9af9f959c19a74108&',
+                vehiclehash = 'ratbike', icon = 'fas fa-car', gas = math.random(50, 70), price = 1500,
             },
         },
         spawnpoints = {
@@ -55,23 +55,23 @@ Config.Locations = {
         },
         vehicles = {
             [1] = {
-                vehicleimage = 'https://media.discordapp.net/attachments/1127979309139775530/1211415472650715157/latest.png?ex=65ee1d93&is=65dba893&hm=be79f20406518999e3256203856bb9a1e9d6c9e53ed9e10ed8a75f41aef02645&=&format=webp&quality=lossless&width=550&height=309', -- Image of the vehicle 
-                vehiclehash = 'sultan', -- Name of the vehicle (must be a vehicle from within the shared vehicles.lua in core)
+                vehicleimage = 'https://cdn.discordapp.com/attachments/1134935950313656330/1384795936651477052/latest.png?ex=6853bb37&is=685269b7&hm=15775be0558367827badb5085759377532e86136a36b81758f1055f822b843a8&', -- Image of the vehicle 
+                vehiclehash = 'kalahari', -- Name of the vehicle (must be a vehicle from within the shared vehicles.lua in core)
                 icon = 'fas fa-car',
-                gas = math.random(30, 70), -- Random amount of gas the vehicle will have 
-                price = 500, -- Price of the vehicle to rent
+                gas = math.random(50, 70), -- Random amount of gas the vehicle will have 
+                price = 1000, -- Price of the vehicle to rent
             },
             [2] = {
-                vehicleimage = 'https://media.discordapp.net/attachments/1127979309139775530/1211415650824884244/latest.png?ex=65ee1dbe&is=65dba8be&hm=54d465f57dcf17cca5fc7a476dd6a242d1abf2c4405eda743a8b3925d75717c4&=&format=webp&quality=lossless&width=550&height=309',
-                vehiclehash = 'bison', icon = 'fas fa-car', gas = math.random(30, 70), price = 1500,
+                vehicleimage = 'https://cdn.discordapp.com/attachments/1134935950313656330/1384796388239478866/latest.png?ex=6853bba3&is=68526a23&hm=45ecad1e7afd534bf1186dd771ca33d0dbbfb9f7f6e90d91dc30372d516a2e89&',
+                vehiclehash = 'bison', icon = 'fas fa-car', gas = math.random(50, 70), price = 2000,
             },
             [3] = {
-                vehicleimage = 'https://cdn.discordapp.com/attachments/1127979309139775530/1211415298280923146/surge.png?ex=65ee1d6a&is=65dba86a&hm=91af0b9ba1b9146db48646244d0e08599a330d45d186e292efb0680bcb89f6d4&',
-                vehiclehash = 'surge', icon = 'fas fa-car', gas = math.random(30, 70), price = 900,
+                vehicleimage = 'https://cdn.discordapp.com/attachments/1134935950313656330/1384796322682507335/latest.png?ex=6853bb93&is=68526a13&hm=ea0a74f42e0e3f9d0afc81a902218855293347b3638c84a995c3d560241a8cc5&',
+                vehiclehash = 'surge', icon = 'fas fa-car', gas = math.random(50, 70), price = 1500,
             },
             [4] = {
-                vehicleimage = 'https://cdn.discordapp.com/attachments/1127979309139775530/1211415838087843840/gta-mag-maibatsu-sanchez-livery-406178.png?ex=65ee1dea&is=65dba8ea&hm=a65abacbb6e4ffdaa3318d56e8e8e7148cd593f5b3cd1235aa8a1520de5d61ab&',
-                vehiclehash = 'sanchez', icon = 'fas fa-car', gas = math.random(30, 70), price = 800,
+                vehicleimage = 'https://cdn.discordapp.com/attachments/1134935950313656330/1384796453896982598/latest.png?ex=6853bbb2&is=68526a32&hm=6d80b423bb7928673c64821c1cd2313f03045ea0340cb5a9af9f959c19a74108&',
+                vehiclehash = 'ratbike', icon = 'fas fa-car', gas = math.random(50, 70), price = 1500,
             },
         },
         spawnpoints = {
